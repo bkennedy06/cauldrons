@@ -81,14 +81,12 @@ def post_visits(visit_id: int, customers: list[Customer]):
     """
     print(customers)
 
-    return "OK"
-
+    return "OK" 
 
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-    #with db.engine.begin() as connection:
-    #    result = connection.execute(sqlalchemy.text(sql_to_execute))
+    
     return {"cart_id": 1}
 
 
@@ -107,7 +105,14 @@ class CartCheckout(BaseModel):
     payment: str
 
 @router.post("/{cart_id}/checkout")
-def checkout(cart_id: int, cart_checkout: CartCheckout):
+def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and gold paid should be based on car_id
     """ """
+    with db.engine.begin() as connection:
+        net_gold = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).first()[2] + 50 # gold paid
+        net_green_pot = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).first()[0] - 1 # potions sold
+
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :newGold"), newGold=net_gold)
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = :newPot"), newPot=net_green_pot)
+
 
     return {"total_potions_bought": 1, "total_gold_paid": 50}

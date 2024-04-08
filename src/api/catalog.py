@@ -14,13 +14,16 @@ def get_catalog():
     with db.engine.begin() as connection:
         result = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory"))
         num_green_potions = result.first()[0] # result is a cursorType and needs those accessors
-        
-    return [
+    
+    if num_green_potions > 0: # just selling one for now
+        return [
             {
                 "sku": "GREEN_POTION_0",
                 "name": "green potion",
-                "quantity": num_green_potions,
-                "price": 30, # originally 50
+                "quantity": 1,
+                "price": 50, # originally 50
                 "potion_type": [0, 100, 0, 0], # r g b, and dark
             }
         ]
+    else:
+        return []
