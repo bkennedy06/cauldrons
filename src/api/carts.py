@@ -1,3 +1,5 @@
+import sqlalchemy
+from src import database as db
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from src.api import auth
@@ -51,7 +53,7 @@ def search_orders(
     Your results must be paginated, the max results you can return at any
     time is 5 total line items.
     """
-
+    
     return {
         "previous": "",
         "next": "",
@@ -85,6 +87,8 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
+    #with db.engine.begin() as connection:
+    #    result = connection.execute(sqlalchemy.text(sql_to_execute))
     return {"cart_id": 1}
 
 
