@@ -1,3 +1,5 @@
+import sqlalchemy
+from src import database as db
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
@@ -9,11 +11,20 @@ router = APIRouter(
     dependencies=[Depends(auth.get_api_key)],
 )
 
-@router.get("/audit")
+@router.get("/audit") # return all my stuff in my db
 def get_inventory():
     """ """
+    with db.engine.begin() as connection:
+        num_g_p = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).first()[0]
+        num_r_p = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).first()[0]
+        num_b_p = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).first()[0]
+        gml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).first()[0]
+        rml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).first()[0]
+        bml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).first()[0]
+
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
     
-    return {"number_of_potions": 0, "ml_in_barrels": 0, "gold": 0}
+    return {"number_of_potions": num_b_p + num_g_p + num_r_p, "ml_in_barrels": gml + rml + bml, "gold": gold}
 
 # Gets called once a day
 @router.post("/plan")
@@ -24,8 +35,8 @@ def get_capacity_plan():
     """
 
     return {
-        "potion_capacity": 0,
-        "ml_capacity": 0
+        "potion_capacity": 50,
+        "ml_capacity": 10000
         }
 
 class CapacityPurchase(BaseModel):

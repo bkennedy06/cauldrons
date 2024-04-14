@@ -86,18 +86,28 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-    
-    return {"cart_id": 1}
+    with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
+        connection.execute(sqlalchemy.text("INSERT INTO orders (num_red_potions, num_green_potions, num_blue_potions) VALUES (0, 0, 0)"))
+        cartID = connection.execute(sqlalchemy.text("SELECT id FROM orders WHERE id = (SELECT MAX(id) FROM orders)")).first()[0]
+
+    return {"cart_id": cartID}
 
 
 class CartItem(BaseModel):
     quantity: int
 
 
-@router.post("/{cart_id}/items/{item_sku}")
+@router.post("/{cart_id}/items/{item_sku}") # For selling more than 1 potions
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
-
+    with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
+        connection.execute(sqlalchemy.text("SELECT * FROM orders WHERE id = %d" % (cart_id)))
+        if item_sku == "GREEN_POTION_0":
+            connection.execute(sqlalchemy.text("UPDATE orders SET num_green_potions = %d WHERE id = %d" % (cart_item.quantity, cart_id)))
+        elif item_sku == "RED_POTION_0":
+            connection.execute(sqlalchemy.text("UPDATE orders SET num_red_potions = %d WHERE id = %d" % (cart_item.quantity, cart_id)))
+        elif item_sku == "BLUE_POTION_0":
+            connection.execute(sqlalchemy.text("UPDATE orders SET num_blue_potions = %d WHERE id = %d" % (cart_item.quantity, cart_id)))
     return "OK"
 
 
@@ -108,11 +118,22 @@ class CartCheckout(BaseModel):
 def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and gold paid should be based on car_id
     """ """
     with db.engine.begin() as connection:
-        net_gold = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).first()[2] + 50 # gold paid
-        net_green_pot = connection.execute(sqlalchemy.text("SELECT * FROM global_inventory")).first()[0] - 1 # potions sold
+        cur_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
+        potions = connection.execute(sqlalchemy.text("SELECT * FROM orders WHERE id = %d" % (cart_id))).first() # potions sold
 
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = :newGold"), newGold=net_gold)
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = :newPot"), newPot=net_green_pot)
+        totPot = 0
+        if potions[1] > 0: # [1] = red [2] = green [3] = blue
+            totPot += potions[1]
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions - %d" % (potions[1])))
+        if potions[2] > 0:
+            totPot += potions[2]
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions - %d" % (potions[2])))
+        if potions[3] > 0:
+            totPot += potions[3]
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions - %d" % (potions[3])))
+
+        net_gold = cur_gold + (totPot * 40) # Standard price across the board
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = %d" % (net_gold)))
 
 
-    return {"total_potions_bought": 1, "total_gold_paid": 50}
+    return {"total_potions_bought": totPot, "total_gold_paid": totPot * 40}
