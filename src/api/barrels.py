@@ -38,18 +38,13 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
     with db.engine.begin() as connection: # update storage depending on potion
         if greenMl > 0:
-            netGml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).first()[0] + greenMl
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = %d" % (netGml)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + %d" % (greenMl)))
         if redMl > 0:
-            netRml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).first()[0] + redMl
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = %d" % (netRml)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + %d" % (redMl)))
         if blueMl > 0:
-            netBml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).first()[0] + blueMl
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = %d" % (netBml)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + %d" % (blueMl)))
 
-
-        netGold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0] - total_cost
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = %d" % (netGold)))
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - %d" % (total_cost))) # Subtract costs
 
     return "OK"
 
@@ -78,11 +73,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         }
     
     pur_plan = [] # Should check if barrel is available in wholesale_catalogue, and dont buy if not enough gold
-    if num_green_potions < 10:
+    if num_green_potions < 10 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog):
         pur_plan.append(green_pur)
-    if num_red_potions < 10: 
+    if num_red_potions < 10 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog): 
         pur_plan.append(red_pur)
-    if num_blue_potions < 10:
+    if num_blue_potions < 10 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog):
         pur_plan.append(blue_pur)
 
     return pur_plan

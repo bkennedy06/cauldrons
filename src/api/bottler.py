@@ -20,12 +20,6 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     """ """
     print(f"potions delievered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
-        curr_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).first()[0] # Green
-        curr_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).first()[0]
-        curr_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).first()[0] # Red
-        curr_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).first()[0]
-        curr_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).first()[0] # Blue
-        curr_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).first()[0]
 
         net_green_ml = 0
         net_green_pot = 0
@@ -44,22 +38,14 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
                 net_blue_ml += (100 * p_inv.quantity)
                 net_blue_pot += p_inv.quantity # add total number of green potions
 
-        net_green_pot += curr_green_potions
-        net_red_pot += curr_red_potions
-        net_blue_pot += curr_blue_potions
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - %d" % (net_green_ml)))
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions + %d" % (net_green_pot)))
 
-        net_green_ml = curr_green_ml - net_green_ml # subtracting ml from total, conversion to potions
-        net_red_ml = curr_red_ml - net_red_ml
-        net_blue_ml = curr_blue_ml - net_blue_ml
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml - %d" % (net_blue_ml)))
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions + %d" % (net_blue_pot)))
 
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = %d" % (net_green_ml)))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = %d" % (net_green_pot)))
-
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = %d" % (net_blue_ml)))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = %d" % (net_blue_pot)))
-
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = %d" % (net_red_ml)))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = %d" % (net_red_pot)))
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml - %d" % (net_red_ml)))
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions + %d" % (net_red_pot)))
 
 
     return "OK"
