@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy.exc import IntegrityError
 from src import database as db
 from fastapi import APIRouter, Depends
 from enum import Enum
@@ -20,33 +21,34 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     """ """
     print(f"potions delievered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
+        try:
+            net_green_ml = 0
+            net_green_pot = 0
+            net_red_ml = 0
+            net_red_pot = 0
+            net_blue_ml = 0
+            net_blue_pot = 0
+            for p_inv in potions_delivered:
+                if p_inv.potion_type == [0, 100, 0, 0]: # green
+                    net_green_ml += (100 * p_inv.quantity)
+                    net_green_pot += p_inv.quantity # add total number of green potions
+                elif p_inv.potion_type == [100, 0, 0, 0]: # red
+                    net_red_ml += (100 * p_inv.quantity)
+                    net_red_pot += p_inv.quantity # add total number of green potions
+                elif p_inv.potion_type == [0, 0, 100, 0]: # blue
+                    net_blue_ml += (100 * p_inv.quantity)
+                    net_blue_pot += p_inv.quantity # add total number of green potions
 
-        net_green_ml = 0
-        net_green_pot = 0
-        net_red_ml = 0
-        net_red_pot = 0
-        net_blue_ml = 0
-        net_blue_pot = 0
-        for p_inv in potions_delivered:
-            if p_inv.potion_type == [0, 100, 0, 0]: # green
-                net_green_ml += (100 * p_inv.quantity)
-                net_green_pot += p_inv.quantity # add total number of green potions
-            elif p_inv.potion_type == [100, 0, 0, 0]: # red
-                net_red_ml += (100 * p_inv.quantity)
-                net_red_pot += p_inv.quantity # add total number of green potions
-            elif p_inv.potion_type == [0, 0, 100, 0]: # blue
-                net_blue_ml += (100 * p_inv.quantity)
-                net_blue_pot += p_inv.quantity # add total number of green potions
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - %d" % (net_green_ml)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions + %d" % (net_green_pot)))
 
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - %d" % (net_green_ml)))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions + %d" % (net_green_pot)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml - %d" % (net_blue_ml)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions + %d" % (net_blue_pot)))
 
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml - %d" % (net_blue_ml)))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions + %d" % (net_blue_pot)))
-
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml - %d" % (net_red_ml)))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions + %d" % (net_red_pot)))
-
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml - %d" % (net_red_ml)))
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions + %d" % (net_red_pot)))
+        except IntegrityError as e:
+            return "OK"
 
     return "OK"
 

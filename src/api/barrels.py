@@ -86,6 +86,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             r_cost = b.price
         elif b.sku == "SMALL_BLUE_BARREL":
             b_cost = b.price
+            
     pur_plan = [] # Should check if barrel is available in wholesale_catalogue, and dont buy if not enough gold
     if num_green_potions < 10 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
         pur_plan.append(green_pur)
@@ -98,4 +99,3 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         purch_power -= b_cost
 
     return pur_plan
-
