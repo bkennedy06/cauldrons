@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy.exc import IntegrityError
 from src import database as db
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -37,16 +38,17 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         total_cost += (barrel.price * barrel.quantity) # price per barrel
     
     with db.engine.begin() as connection: # update storage depending on potion
-        
-        if greenMl > 0:
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + %d" % (greenMl)))
-        if redMl > 0:
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + %d" % (redMl)))
-        if blueMl > 0:
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + %d" % (blueMl)))
+        try:
+            if greenMl > 0:
+                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + %d" % (greenMl)))
+            if redMl > 0:
+                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + %d" % (redMl)))
+            if blueMl > 0:
+                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + %d" % (blueMl)))
 
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - %d" % (total_cost))) # Subtract costs
-        
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - %d" % (total_cost))) # Subtract costs
+        except IntegrityError as e:
+            return "OK"
         
     return "OK"
 
