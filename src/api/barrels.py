@@ -37,17 +37,16 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         total_cost += (barrel.price * barrel.quantity) # price per barrel
     
     with db.engine.begin() as connection: # update storage depending on potion
-        try:
-            if greenMl > 0:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + %d" % (greenMl)))
-            if redMl > 0:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + %d" % (redMl)))
-            if blueMl > 0:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + %d" % (blueMl)))
+        
+        if greenMl > 0:
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + %d" % (greenMl)))
+        if redMl > 0:
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + %d" % (redMl)))
+        if blueMl > 0:
+            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + %d" % (blueMl)))
 
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - %d" % (total_cost))) # Subtract costs
-        except IntegrityError as e:
-            return "OK"
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - %d" % (total_cost))) # Subtract costs
+        
         
     return "OK"
 
@@ -61,7 +60,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         num_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).first()[0]
         num_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).first()[0]
         num_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).first()[0]
-    
+        purch_power = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
     green_pur = {
             "sku": "SMALL_GREEN_BARREL",
             "quantity": 1,
@@ -75,13 +74,26 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             "quantity": 1,
         }
     
+    g_cost = 0
+    r_cost = 0
+    b_cost = 0
+    for b in wholesale_catalog:
+        if b.sku == "SMALL_GREEN_BARREL":
+            g_cost = b.price
+        elif b.sku == "SMALL_RED_BARREL":
+            r_cost = b.price
+        elif b.sku == "SMALL_BLUE_BARREL":
+            b_cost = b.price
     pur_plan = [] # Should check if barrel is available in wholesale_catalogue, and dont buy if not enough gold
-    if num_green_potions < 10 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog):
+    if num_green_potions < 10 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
         pur_plan.append(green_pur)
-    if num_red_potions < 10 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog): 
+        purch_power -= g_cost
+    if num_red_potions < 10 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= r_cost: 
         pur_plan.append(red_pur)
-    if num_blue_potions < 10 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog):
+        purch_power -= r_cost
+    if num_blue_potions < 10 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= b_cost:
         pur_plan.append(blue_pur)
+        purch_power -= b_cost
 
     return pur_plan
 
