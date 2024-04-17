@@ -87,9 +87,8 @@ def post_visits(visit_id: int, customers: list[Customer]):
 def create_cart(new_cart: Customer):
     """ """
     with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
-        connection.execute(sqlalchemy.text("INSERT INTO orders (num_red_potions, num_green_potions, num_blue_potions) VALUES (0, 0, 0)"))
-        cartID = connection.execute(sqlalchemy.text("SELECT id FROM orders WHERE id = (SELECT MAX(id) FROM orders)")).first()[0]
-
+        cartID =connection.execute(sqlalchemy.text("INSERT INTO orders DEFAULT VALUES RETURNING id"))
+        
     return {"cart_id": cartID}
 
 
