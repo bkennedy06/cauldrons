@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy.exc import IntegrityError
 from src import database as db
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -87,7 +88,10 @@ def post_visits(visit_id: int, customers: list[Customer]):
 def create_cart(new_cart: Customer):
     """ """
     with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
-        cartID =connection.execute(sqlalchemy.text("INSERT INTO orders DEFAULT VALUES RETURNING id"))
+        try: 
+            cartID = connection.execute(sqlalchemy.text("INSERT INTO orders DEFAULT VALUES RETURNING id")).scalar()
+        except IntegrityError as e:
+            return "OK"
         
     return {"cart_id": cartID}
 
@@ -118,7 +122,7 @@ def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and go
     """ """
     with db.engine.begin() as connection:
         cur_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
-        potions = connection.execute(sqlalchemy.text("SELECT * FROM orders WHERE id = %d" % (cart_id))).first() # potions sold
+        potions = connection.execute(sqlalchemy.text("SELECT * FROM orders WHERE id = %d" % (cart_id))).first() # potions in cart with ID
 
         totPot = 0
         if potions[1] > 0: # [1] = red [2] = green [3] = blue
@@ -131,8 +135,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and go
             totPot += potions[3]
             connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions - %d" % (potions[3])))
 
-        net_gold = cur_gold + (totPot * 40) # Standard price across the board
+        net_gold = cur_gold + (totPot * 50) # Standard price across the board
         connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = %d" % (net_gold)))
 
 
-    return {"total_potions_bought": totPot, "total_gold_paid": totPot * 40}
+    return {"total_potions_bought": totPot, "total_gold_paid": totPot * 50}

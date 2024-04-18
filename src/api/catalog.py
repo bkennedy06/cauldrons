@@ -21,21 +21,21 @@ def get_catalog():
                 "sku": "GREEN_POTION_0",
                 "name": "green potion",
                 "quantity": num_green_potions,
-                "price": 40, # originally 50
+                "price": 50, # originally 50
                 "potion_type": [0, 100, 0, 0], # r g b, and dark
             }
     rpot = {
                 "sku": "RED_POTION_0",
                 "name": "red potion",
                 "quantity": num_red_potions,
-                "price": 40, # originally 50
+                "price": 50, # originally 50
                 "potion_type": [100, 0, 0, 0], # r g b, and dark
             }
     bpot = {
                 "sku": "BLUE_POTION_0",
                 "name": "blue potion",
                 "quantity": num_blue_potions,
-                "price": 40, # originally 50
+                "price": 50, # originally 50
                 "potion_type": [0, 0, 100, 0], # r g b, and dark
             }
 
