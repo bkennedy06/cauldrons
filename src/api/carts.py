@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from src.api import auth
 from enum import Enum
+import json
+import re
 
 router = APIRouter(
     prefix="/carts",
@@ -87,7 +89,7 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-    with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
+    with db.engine.begin() as connection: # orders = (id, type, quantitiy) type and quan are text arrays
         try: 
             cartID = connection.execute(sqlalchemy.text("INSERT INTO orders DEFAULT VALUES RETURNING id")).scalar()
         except IntegrityError as e:
@@ -103,14 +105,19 @@ class CartItem(BaseModel):
 @router.post("/{cart_id}/items/{item_sku}") # For selling more than 1 potions
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
+    potion_type = type_extracter(item_sku)
+    print(potion_type)
     with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
-        connection.execute(sqlalchemy.text("SELECT * FROM orders WHERE id = %d" % (cart_id)))
-        if item_sku == "GREEN_POTION_0":
-            connection.execute(sqlalchemy.text("UPDATE orders SET num_green_potions = %d WHERE id = %d" % (cart_item.quantity, cart_id)))
-        elif item_sku == "RED_POTION_0":
-            connection.execute(sqlalchemy.text("UPDATE orders SET num_red_potions = %d WHERE id = %d" % (cart_item.quantity, cart_id)))
-        elif item_sku == "BLUE_POTION_0":
-            connection.execute(sqlalchemy.text("UPDATE orders SET num_blue_potions = %d WHERE id = %d" % (cart_item.quantity, cart_id)))
+        types = json.loads((connection.execute(sqlalchemy.text("SELECT type FROM orders WHERE id = %d" % (cart_id)))).scalar())
+        quantities = json.loads((connection.execute(sqlalchemy.text("SELECT quantity FROM orders WHERE id = %d" % (cart_id)))).scalar())
+        if potion_type in types: # Potion type already in cart
+            quantities[types.index(potion_type)] = cart_item.quantity # Set quantity, probably not used
+        else: # Potion type not in cart
+            types.append(potion_type)
+            quantities.append(cart_item.quantity) # Should be the same index
+
+        connection.execute(sqlalchemy.text("UPDATE orders SET type = :types WHERE id = :id"), {'types': str(types), 'id' : cart_id})
+        connection.execute(sqlalchemy.text("UPDATE orders SET quantity = :quan WHERE id = :id"), {'quan': str(quantities), 'id' : cart_id})
     return "OK"
 
 
@@ -121,22 +128,34 @@ class CartCheckout(BaseModel):
 def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and gold paid should be based on car_id
     """ """
     with db.engine.begin() as connection:
-        cur_gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
-        potions = connection.execute(sqlalchemy.text("SELECT * FROM orders WHERE id = %d" % (cart_id))).first() # potions in cart with ID
+        types = json.loads(connection.execute(sqlalchemy.text("SELECT type FROM orders WHERE id = %d" % (cart_id))).scalar()) # potions in cart with ID
+        quantities = json.loads(connection.execute(sqlalchemy.text("SELECT quantity FROM orders WHERE id = %d" % (cart_id))).scalar())
+        shmoney = price_calc(types, quantities)
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold + %d" % (shmoney)))
 
-        totPot = 0
-        if potions[1] > 0: # [1] = red [2] = green [3] = blue
-            totPot += potions[1]
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_potions = num_red_potions - %d" % (potions[1])))
-        if potions[2] > 0:
-            totPot += potions[2]
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_potions = num_green_potions - %d" % (potions[2])))
-        if potions[3] > 0:
-            totPot += potions[3]
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_potions = num_blue_potions - %d" % (potions[3])))
+        i = 0
+        for type in types: # remove potions from inv
+            connection.execute(sqlalchemy.text("UPDATE potions SET quantity = quantity - :quantity WHERE type = :pot_type"), {'quantity' : quantities[i], 'pot_type' : str(type)})
+            i += 1
 
-        net_gold = cur_gold + (totPot * 50) # Standard price across the board
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = %d" % (net_gold)))
+    return {"total_potions_bought": sum(quantities), "total_gold_paid": shmoney}
 
+def type_extracter(item_sku):
+    if item_sku == "Red_Potion":
+        return [100, 0, 0 ,0]
+    elif item_sku == "Green_Potion":
+        return [0, 100, 0, 0]
+    elif item_sku == "Blue_Potion":
+        return [0, 0, 100, 0]
+    else: # Custom potion
+        return json.loads((re.search(r'\[(.*?)\]', item_sku)).group(0))
 
-    return {"total_potions_bought": totPot, "total_gold_paid": totPot * 50}
+def price_calc(types, quantities):
+    with db.engine.begin() as connection:
+        shmoney = 0
+        i = 0
+        for type in types:
+            price = connection.execute(sqlalchemy.text("SELECT price FROM potions WHERE type = :ptype"), {'ptype' : str(type)}).scalar()
+            shmoney += (price * quantities[i])
+            i += 1
+    return shmoney

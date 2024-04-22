@@ -1,6 +1,7 @@
 import sqlalchemy
 from src import database as db
 from fastapi import APIRouter
+import json
 
 router = APIRouter()
 
@@ -11,39 +12,43 @@ def get_catalog():
     """
     Each unique item combination must have only a single price.
     """
-    with db.engine.begin() as connection:
-        num_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).first()[0]
-        num_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).first()[0]
-        num_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).first()[0]
-    
     catalogue = []
-    gpot = {
-                "sku": "GREEN_POTION_0",
-                "name": "green potion",
-                "quantity": num_green_potions,
-                "price": 50, # originally 50
-                "potion_type": [0, 100, 0, 0], # r g b, and dark
-            }
-    rpot = {
-                "sku": "RED_POTION_0",
-                "name": "red potion",
-                "quantity": num_red_potions,
-                "price": 50, # originally 50
-                "potion_type": [100, 0, 0, 0], # r g b, and dark
-            }
-    bpot = {
-                "sku": "BLUE_POTION_0",
-                "name": "blue potion",
-                "quantity": num_blue_potions,
-                "price": 50, # originally 50
-                "potion_type": [0, 0, 100, 0], # r g b, and dark
-            }
+    with db.engine.begin() as connection:
+        potions = connection.execute(sqlalchemy.text("SELECT * FROM potions"))
+        for potion in potions:
+            type = potion[0]
+            quantity = potion[1]
+            price = potion[2]
 
-    if num_green_potions > 0:
-        catalogue.append(gpot)
-    if num_red_potions > 0:
-        catalogue.append(rpot)
-    if num_blue_potions > 0:
-        catalogue.append(bpot)
+            sale = {
+                "sku": skuer(potion),
+                "name": namer(potion),
+                "quantity": quantity,
+                "price": price,
+                "potion_type": type,
+            }
+            catalogue.append(sale)
 
     return catalogue
+
+def skuer(potion):
+    type = json.loads(potion[0])
+    if type[0] == 100:
+        return "Red_Potion"
+    elif type[1] == 100:
+        return "Green_Potion"
+    elif type[2] == 100:
+        return "Blue_Potion"
+    else:
+        return "Custom_Potion_" + potion[0]
+
+def namer(potion):
+    type = json.loads(potion[0])
+    if type[0] == 100:
+        return "Red Potion"
+    elif type[1] == 100:
+        return "Green Potion"
+    elif type[2] == 100:
+        return "Blue Potion"
+    else:
+        return "Custom Potion: " + potion[0]

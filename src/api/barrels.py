@@ -59,9 +59,9 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     print(wholesale_catalog) # [Barrel (type, sku, ml_per_barrel, potion type, price and quantity)]
                             # list of barrels
     with db.engine.begin() as connection:
-        num_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).first()[0]
-        num_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).first()[0]
-        num_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).first()[0]
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).first()[0]
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).first()[0]
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).first()[0]
         purch_power = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
     green_pur = {
             "sku": "SMALL_GREEN_BARREL",
@@ -88,13 +88,13 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             b_cost = b.price
             
     pur_plan = [] # Should check if barrel is available in wholesale_catalogue, and dont buy if not enough gold
-    if num_green_potions < 10 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
+    if num_green_ml < 150 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
         pur_plan.append(green_pur)
         purch_power -= g_cost
-    if num_red_potions < 10 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= r_cost: 
+    if num_red_ml < 150 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= r_cost: 
         pur_plan.append(red_pur)
         purch_power -= r_cost
-    if num_blue_potions < 10 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= b_cost:
+    if num_blue_ml < 150 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= b_cost:
         pur_plan.append(blue_pur)
         purch_power -= b_cost
 
