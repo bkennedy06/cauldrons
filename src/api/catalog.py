@@ -16,7 +16,7 @@ def get_catalog():
     with db.engine.begin() as connection:
         potions = connection.execute(sqlalchemy.text("SELECT * FROM potions"))
         for potion in potions:
-            type = potion[0]
+            type = json.loads(potion[0])
             quantity = potion[1]
             price = potion[2]
 
@@ -25,7 +25,7 @@ def get_catalog():
                 "name": namer(potion),
                 "quantity": quantity,
                 "price": price,
-                "potion_type": type,
+                "potion_type": type, # should be proper array
             }
             catalogue.append(sale)
 
