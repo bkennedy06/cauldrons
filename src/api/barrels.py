@@ -88,13 +88,13 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
             b_cost = b.price
             
     pur_plan = [] # Should check if barrel is available in wholesale_catalogue, and dont buy if not enough gold
-    if num_green_ml < 150 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
+    if num_green_ml < 200 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
         pur_plan.append(green_pur)
         purch_power -= g_cost
-    if num_red_ml < 150 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= r_cost: 
+    if num_red_ml < 200 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= r_cost: 
         pur_plan.append(red_pur)
         purch_power -= r_cost
-    if num_blue_ml < 150 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= b_cost:
+    if num_blue_ml < 200 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= b_cost:
         pur_plan.append(blue_pur)
         purch_power -= b_cost
 
