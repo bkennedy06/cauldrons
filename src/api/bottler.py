@@ -76,9 +76,31 @@ def get_bottle_plan():
     
     return package(supplies)
 
-def package(supplies): # Array of potion supplies
+def package(supplies):
     packages = []
 
+    #At least one custom potion
+    if sum(supplies) >= 100:
+        mixed_package = [0] * len(supplies)
+        total = 0
+
+        for i in range(len(supplies)):
+            if total < 100 and supplies[i] > 0:
+                
+                max_take = min(supplies[i], 100 - total)
+                if max_take == 100 and total == 0 and sum(supplies) - supplies[i] >= 100:
+                    # If possible, take less than 100 to allow mixing
+                    max_take -= min(25, max_take)
+                mixed_package[i] = max_take
+                supplies[i] -= max_take
+                total += max_take
+                if total >= 100:
+                    break
+
+        if total == 100:
+            packages.append(mixed_package)
+
+    # Continue with previous logic to fill up packages using available supplies
     while sum(supplies) >= 100:
         single_package_made = False
         for i in range(len(supplies)):
@@ -105,18 +127,18 @@ def package(supplies): # Array of potion supplies
 
         packages.append(package)
 
-    package_counts = {}
+    packages = {}
     for package in packages:
         key = tuple(package)
-        if key in package_counts:
-            package_counts[key]['quantity'] += 1
+        if key in packages:
+            packages[key]['quantity'] += 1
         else:
-            package_counts[key] = {
+            packages[key] = {
                 "potion_type": list(key),
                 "quantity": 1
             }
 
-    return list(package_counts.values())
+    return list(packages.values())
 
 
 if __name__ == "__main__":
