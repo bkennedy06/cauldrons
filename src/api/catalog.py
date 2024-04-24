@@ -16,7 +16,7 @@ def get_catalog():
     with db.engine.begin() as connection:
         potions = connection.execute(sqlalchemy.text("SELECT * FROM potions"))
         for potion in potions:
-            type = json.loads(potion[0])
+            type = list(json.loads(potion[0]))
             quantity = potion[1]
             price = potion[2]
 
