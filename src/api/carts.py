@@ -91,7 +91,7 @@ def create_cart(new_cart: Customer):
     """ """
     with db.engine.begin() as connection: # orders = (id, type, quantitiy) type and quan are text arrays
         try: 
-            cartID = connection.execute(sqlalchemy.text("INSERT INTO orders DEFAULT VALUES RETURNING id")).scalar()
+            cartID = connection.execute(sqlalchemy.text("INSERT INTO carts DEFAULT VALUES RETURNING id")).scalar()
         except IntegrityError as e:
             return "OK"
         
@@ -107,17 +107,17 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
     potion_type = type_extracter(item_sku)
     print(potion_type)
-    with db.engine.begin() as connection: # orders = (id, num_red_potions, num_green_potions, nblue)
-        types = json.loads((connection.execute(sqlalchemy.text("SELECT type FROM orders WHERE id = %d" % (cart_id)))).scalar())
-        quantities = json.loads((connection.execute(sqlalchemy.text("SELECT quantity FROM orders WHERE id = %d" % (cart_id)))).scalar())
+    with db.engine.begin() as connection: # carts = (id, num_red_potions, num_green_potions, nblue)
+        types = json.loads((connection.execute(sqlalchemy.text("SELECT type FROM carts WHERE id = %d" % (cart_id)))).scalar())
+        quantities = json.loads((connection.execute(sqlalchemy.text("SELECT quantity FROM carts WHERE id = %d" % (cart_id)))).scalar())
         if potion_type in types: # Potion type already in cart
             quantities[types.index(potion_type)] = cart_item.quantity # Set quantity, probably not used
         else: # Potion type not in cart
             types.append(potion_type)
             quantities.append(cart_item.quantity) # Should be the same index
 
-        connection.execute(sqlalchemy.text("UPDATE orders SET type = :types WHERE id = :id"), {'types': str(types), 'id' : cart_id})
-        connection.execute(sqlalchemy.text("UPDATE orders SET quantity = :quan WHERE id = :id"), {'quan': str(quantities), 'id' : cart_id})
+        connection.execute(sqlalchemy.text("UPDATE carts SET type = :types WHERE id = :id"), {'types': str(types), 'id' : cart_id})
+        connection.execute(sqlalchemy.text("UPDATE carts SET quantity = :quan WHERE id = :id"), {'quan': str(quantities), 'id' : cart_id})
     return "OK"
 
 
@@ -128,15 +128,15 @@ class CartCheckout(BaseModel):
 def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and gold paid should be based on car_id
     """ """
     with db.engine.begin() as connection:
-        types = json.loads(connection.execute(sqlalchemy.text("SELECT type FROM orders WHERE id = %d" % (cart_id))).scalar()) # potions in cart with ID
-        quantities = json.loads(connection.execute(sqlalchemy.text("SELECT quantity FROM orders WHERE id = %d" % (cart_id))).scalar())
+        types = json.loads(connection.execute(sqlalchemy.text("SELECT type FROM carts WHERE id = %d" % (cart_id))).scalar()) # potions in cart with ID
+        quantities = json.loads(connection.execute(sqlalchemy.text("SELECT quantity FROM carts WHERE id = %d" % (cart_id))).scalar())
         shmoney = price_calc(types, quantities)
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold + %d" % (shmoney)))
-
+        connection.execute(sqlalchemy.text("INSERT INTO ledger (gold_change, description) VALUES (:gold, 'Potion profit')"), {'gold' : shmoney})
+        # gold should be positive
         i = 0
         for type in types: # remove potions from inv
-            connection.execute(sqlalchemy.text("UPDATE potions SET quantity = quantity - :quantity WHERE type = :pot_type"), {'quantity' : quantities[i], 'pot_type' : str(type)})
-            i += 1
+            connection.execute(sqlalchemy.text("INSERT INTO ledger (potion_type, potion_quantity_change, description) VALUES (:pot_type, :quantity, 'Potions sold')"), {'quantity' : 0 - quantities[i], 'pot_type' : str(type)})
+            i += 1  # Potions should be negative
 
     return {"total_potions_bought": sum(quantities), "total_gold_paid": shmoney}
 

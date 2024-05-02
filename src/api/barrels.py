@@ -40,62 +40,103 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     with db.engine.begin() as connection: # update storage depending on potion
         try:
             if greenMl > 0:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + %d" % (greenMl)))
+                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :price, 'Green barrel purchased')"""),
+                                   {'pot_type' : "[0, 1, 0, 0]", 'price' : (0 - total_cost)})
+                connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (g_ml, description) VALUES (:gml, 'Green barrel purchased')"""),
+                                   {'gml' : greenMl})
             if redMl > 0:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml + %d" % (redMl)))
+                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :rml, :price, 'Red barrel purchased')"""),
+                                   {'pot_type' : "[1, 0, 0, 0]", 'price' : (0 - total_cost)})
+                connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (r_ml, description) VALUES (:rml, 'Red barrel purchased')"""),
+                                   {'rml' : redMl})
             if blueMl > 0:
-                connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml + %d" % (blueMl)))
-
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - %d" % (total_cost))) # Subtract costs
+                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :bml, :price, 'Blue barrel purchased')"""),
+                                   {'pot_type' : "[0, 0, 1, 0]",  'price' : (0 - total_cost)})
+                connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (b_ml, description) VALUES (:bml, 'Blue barrel purchased')"""),
+                                   {'bml' : blueMl})
         except IntegrityError as e:
             return "OK"
         
     return "OK"
 
 # Gets called once a day
-@router.post("/plan")
+@router.post("/plan") # SHould buy multiple barrels at one go
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     """ """
     print(wholesale_catalog) # [Barrel (type, sku, ml_per_barrel, potion type, price and quantity)]
                             # list of barrels
     with db.engine.begin() as connection:
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).first()[0]
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).first()[0]
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).first()[0]
-        purch_power = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).first()[0]
+        purch_power = connection.execute(sqlalchemy.text("SELECT SUM(gold_change) AS balance FROM ledger")).first()[0]
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(g_ml) AS ml FROM liquid_ledger")).first()[0]
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(r_ml) AS ml FROM liquid_ledger")).first()[0]
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(b_ml) AS ml FROM liquid_ledger")).first()[0]
+
+    if num_blue_ml is None:
+        num_blue_ml = 0
+    if num_red_ml is None:
+        num_red_ml = 0
+    if num_green_ml is None:
+        num_green_ml = 0
+
+    purchases = optimize_purchases(purch_power, [num_red_ml, num_green_ml, num_blue_ml, 0], wholesale_catalog)
     green_pur = {
-            "sku": "SMALL_GREEN_BARREL",
-            "quantity": 1,
+            "sku": purchases[1][0],
+            "quantity": purchases[1][1],
         }
     blue_pur = {
-            "sku": "SMALL_BLUE_BARREL",
-            "quantity": 1,
+            "sku": purchases[2][0],
+            "quantity": purchases[2][1],
         }
     red_pur = {
-            "sku": "SMALL_RED_BARREL",
-            "quantity": 1,
+            "sku": purchases[0][0],
+            "quantity": purchases[0][1],
         }
-    
-    g_cost = 0
-    r_cost = 0
-    b_cost = 0
-    for b in wholesale_catalog:
-        if b.sku == "SMALL_GREEN_BARREL":
-            g_cost = b.price
-        elif b.sku == "SMALL_RED_BARREL":
-            r_cost = b.price
-        elif b.sku == "SMALL_BLUE_BARREL":
-            b_cost = b.price
-            
+      
     pur_plan = [] # Should check if barrel is available in wholesale_catalogue, and dont buy if not enough gold
-    if num_green_ml < 200 and any("SMALL_GREEN_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= g_cost:
+    if green_pur and purchases[1][1] != 0:
         pur_plan.append(green_pur)
-        purch_power -= g_cost
-    if num_red_ml < 200 and any("SMALL_RED_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= r_cost: 
-        pur_plan.append(red_pur)
-        purch_power -= r_cost
-    if num_blue_ml < 200 and any("SMALL_BLUE_BARREL" in barrel.sku for barrel in wholesale_catalog) and purch_power >= b_cost:
+    if blue_pur and purchases[2][1]:
         pur_plan.append(blue_pur)
-        purch_power -= b_cost
-
+    if red_pur and purchases[0][1]:
+        pur_plan.append(red_pur)
+    
     return pur_plan
+
+def optimize_purchases(gold, current_stock, barrels: list[Barrel]):
+    purchases = [(None, 0)] * 4
+
+    best_barrels_per_type = [[] for _ in current_stock]
+    for barrel in barrels:
+        for i, type_present in enumerate(barrel.potion_type):
+            if type_present:
+                best_barrels_per_type[i].append(barrel)
+    
+    # Sort each list by cost per ml then price
+    for i in range(len(best_barrels_per_type)):
+        best_barrels_per_type[i].sort(key=lambda b: (b.price / b.ml_per_barrel, b.price))
+
+    # buy on priority and available monies
+    for index in sorted(range(len(current_stock)), key=lambda i: current_stock[i]):  # Sort by stock levels
+        for barrel in best_barrels_per_type[index]:
+            if barrel is None:
+                continue
+
+            unit_cost = barrel.price / barrel.ml_per_barrel
+            if gold < unit_cost:  # Check if there's enough gold for one
+                continue
+
+            buyable_quant = min(int(gold / unit_cost), barrel.quantity)
+            purchase_cost = buyable_quant * barrel.price
+
+            purchases[index] = (barrel.sku, buyable_quant)
+
+            # Update remaining gold
+            gold -= purchase_cost
+
+            # If out of gold, break early
+            if gold <= 0:
+                break
+        if gold <= 0:
+            break
+
+    return purchases

@@ -26,29 +26,17 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
             green_ml = 0
             blue_ml = 0
             for p_inv in potions_delivered: # if p_type in potions, add or decrement
-                if 100 in p_inv.potion_type:
-                    price = 50 # Standard potions
-                else: price = 75 # custom potions
-                red_ml += (p_inv.potion_type[0] * p_inv.quantity)
-                green_ml += (p_inv.potion_type[1] * p_inv.quantity)
-                blue_ml += (p_inv.potion_type[2] * p_inv.quantity) # should calculate total used
+                red_ml = (p_inv.potion_type[0] * p_inv.quantity)
+                green_ml = (p_inv.potion_type[1] * p_inv.quantity)
+                blue_ml = (p_inv.potion_type[2] * p_inv.quantity) # should calculate total used
 
                 curr_pot_type = str(p_inv.potion_type)
-                in_potions = connection.execute(sqlalchemy.text("SELECT EXISTS (SELECT 1 FROM potions WHERE type = :pot_type)"), {'pot_type': curr_pot_type}).scalar()
                 
-                if in_potions: # Already in potions
-                    connection.execute(sqlalchemy.text("UPDATE potions SET quantity = quantity + :quantity WHERE type = :pot_type"), {'quantity' : p_inv.quantity, 'pot_type' : curr_pot_type})
-                else: # insert new value
-                    connection.execute(sqlalchemy.text("INSERT INTO potions (type, quantity, price) VALUES (:pot_type, :quantity, :price)"), {'pot_type' : curr_pot_type, 'quantity' : p_inv.quantity, 'price' : price})
-
-                # update quantity and row
-                # multiply quantity by type's array              
-
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml - %d" % (green_ml)))
-        
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_blue_ml = num_blue_ml - %d" % (blue_ml)))
-            
-            connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_red_ml = num_red_ml - %d" % (red_ml)))
+                # maybe try to sync id from ledger to liquid ledger
+                # Add potions, decrement ml's * quantity
+                connection.execute(sqlalchemy.text("INSERT INTO ledger (potion_type, potion_quantity_change, description) VALUES (:pot_type, :quantity, 'Potions bottled')"), {'pot_type' : curr_pot_type, 'quantity' : p_inv.quantity})
+                connection.execute(sqlalchemy.text("INSERT INTO liquid_ledger (r_ml, g_ml, b_ml, description) VALUES (:r_ml, :g_ml, :b_ml, 'Potions bottled')"),
+                                    {'r_ml' : (0 - red_ml), 'g_ml' : (0 - green_ml), 'b_ml' : (0 - blue_ml)})           
             
         except IntegrityError as e:
             return "OK"
@@ -66,17 +54,16 @@ def get_bottle_plan():
     # Expressed in integers from 1 to 100 that must sum up to 100.
 
     with db.engine.begin() as connection:
-        green_ml_available = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).first()[0]
+        green_ml_available = connection.execute(sqlalchemy.text("SELECT SUM(g_ml) AS ml FROM liquid_ledger")).first()[0]
+        red_ml_available = connection.execute(sqlalchemy.text("SELECT SUM(r_ml) AS ml FROM liquid_ledger")).first()[0]
+        blue_ml_available = connection.execute(sqlalchemy.text("SELECT SUM(b_ml) AS ml FROM liquid_ledger")).first()[0]
 
-        blue_ml_available = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).first()[0]
-        
-        red_ml_available = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).first()[0]
         supplies = [red_ml_available, green_ml_available, blue_ml_available, 0] # Placeholder for dark
 
     
     return package(supplies)
 
-def package(supplies):
+def package(supplies): # Just populate db with custom potions, query them to see which we can make
     packages = []
     print(supplies)
     #At least one custom potion

@@ -17,14 +17,13 @@ def reset():
     inventory, and all barrels are removed from inventory. Carts are all reset.
     """
     with db.engine.begin() as connection: # update storage depending on potions
-        connection.execute(sqlalchemy.text("""
-        UPDATE global_inventory SET
-            num_green_ml = 0,
-            num_blue_ml = 0,
-            num_red_ml = 0,
-            gold = 100"""))
-        connection.execute(sqlalchemy.text("DELETE FROM orders")) # delete order records, reset id counter
-        connection.execute(sqlalchemy.text("ALTER SEQUENCE orders_id_seq RESTART WITH 1"))
-        connection.execute(sqlalchemy.text("DELETE FROM potions")) # delete order records, reset id counter
+        connection.execute(sqlalchemy.text("TRUNCATE TABLE ledger RESTART IDENTITY"))
+        connection.execute(sqlalchemy.text("INSERT INTO ledger (description, gold_change) VALUES ('Reset', 100)"))
+
+        connection.execute(sqlalchemy.text("TRUNCATE TABLE liquid_ledger RESTART IDENTITY"))
+        connection.execute(sqlalchemy.text("INSERT INTO liquid_ledger DEFAULT VALUES"))
+        
+        connection.execute(sqlalchemy.text("TRUNCATE TABLE carts RESTART IDENTITY"))
+        # delete order records, reset id counter
     return "OK"
 
