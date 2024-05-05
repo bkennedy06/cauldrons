@@ -102,41 +102,40 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     
     return pur_plan
 
-def optimize_purchases(gold, current_stock, barrels: list[Barrel]):
+def optimize_purchases(gold, current_stock, barrels):
     purchases = [(None, 0)] * 4
-
     best_barrels_per_type = [[] for _ in current_stock]
+
+    # no mini barrels
     for barrel in barrels:
+        if barrel.ml_per_barrel <= 200:
+            continue  
         for i, type_present in enumerate(barrel.potion_type):
             if type_present:
                 best_barrels_per_type[i].append(barrel)
-    
-    # Sort each list by cost per ml then price
-    for i in range(len(best_barrels_per_type)):
-        best_barrels_per_type[i].sort(key=lambda b: (b.price / b.ml_per_barrel, b.price))
 
-    # buy on priority and available monies
-    for index in sorted(range(len(current_stock)), key=lambda i: current_stock[i]):  # Sort by stock levels
+    # Sort each by cost efficiency
+    for i in range(len(best_barrels_per_type)):
+        best_barrels_per_type[i].sort(key=lambda b: (b.price / b.ml_per_barrel))
+
+    # buy on priority and current stock
+    for index in sorted(range(len(current_stock)), key=lambda i: current_stock[i]):
         for barrel in best_barrels_per_type[index]:
             if barrel is None:
                 continue
 
-            unit_cost = barrel.price / barrel.ml_per_barrel
-            if gold < unit_cost:  # Check if there's enough gold for one
+            total_cost = barrel.price # One barrel at a time
+            if gold < total_cost:
                 continue
 
-            buyable_quant = min(int(gold / unit_cost), barrel.quantity)
-            purchase_cost = buyable_quant * barrel.price
-
-            purchases[index] = (barrel.sku, buyable_quant)
-
-            # Update remaining gold
-            gold -= purchase_cost
-
-            # If out of gold, break early
+            # Buy if we not broke
+            purchases[index] = (barrel.sku, 1) 
+            gold -= total_cost
+            
             if gold <= 0:
                 break
         if gold <= 0:
             break
 
     return purchases
+
