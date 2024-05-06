@@ -45,12 +45,12 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                 connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (g_ml, description) VALUES (:gml, 'Green barrel purchased')"""),
                                    {'gml' : greenMl})
             if redMl > 0:
-                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :rml, :price, 'Red barrel purchased')"""),
+                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :price, 'Red barrel purchased')"""),
                                    {'pot_type' : "[1, 0, 0, 0]", 'price' : (0 - total_cost)})
                 connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (r_ml, description) VALUES (:rml, 'Red barrel purchased')"""),
                                    {'rml' : redMl})
             if blueMl > 0:
-                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :bml, :price, 'Blue barrel purchased')"""),
+                connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :price, 'Blue barrel purchased')"""),
                                    {'pot_type' : "[0, 0, 1, 0]",  'price' : (0 - total_cost)})
                 connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (b_ml, description) VALUES (:bml, 'Blue barrel purchased')"""),
                                    {'bml' : blueMl})
