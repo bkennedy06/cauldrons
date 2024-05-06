@@ -56,7 +56,16 @@ def search_orders(
     Your results must be paginated, the max results you can return at any
     time is 5 total line items.
     """
+    # Next and prev should be index of the returning array, first page is 0-4, next is 5-10, prev is 0-4, etc.
+    # Search carts by name if applicable, also by potion sku if applicable.
+    # Make function that returns a list of results, insert into return
+    #with db.engine.begin() as connection:
+    #    if customer_name != "" and potion_sku != "": # Both searching
+    #        result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info FROM carts WHERE type = :type")).first()
+        #elif potion_sku == "": # search for customer name
+        #elif customer_name == "": # search for potion_sku
     
+
     return {
         "previous": "",
         "next": "",
@@ -92,6 +101,8 @@ def create_cart(new_cart: Customer):
     with db.engine.begin() as connection: # orders = (id, type, quantitiy) type and quan are text arrays
         try: 
             cartID = connection.execute(sqlalchemy.text("INSERT INTO carts DEFAULT VALUES RETURNING id")).scalar()
+            customer = "{new_cart.customer_name}"
+            connection.execute(sqlalchemy.text("UPDATE carts SET customer_info = :cust WHERE id = :id"), {'cust' : customer, 'id' : cartID})
         except IntegrityError as e:
             return "OK"
         
