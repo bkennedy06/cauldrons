@@ -75,7 +75,6 @@ def search_orders(
         price = price_calc([pot_type], [quant]) * -1
         quant *= -1
         pot_name = namer(pot_type)
-        # pot type is a list of potion types, need to differentiate
         res = {
                 "line_item_id": id,
                 "item_sku": f"{quant} of {pot_name}",

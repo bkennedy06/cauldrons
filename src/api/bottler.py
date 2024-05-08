@@ -62,8 +62,8 @@ def get_bottle_plan():
 
     potions = package(supplies)
 
-    
-    if len(potions > 50): # Restricted on 50 potions at a time
+
+    if len(potions) > 50: # Restricted on 50 potions at a time
         potions = potions[:49]
     return 
 
