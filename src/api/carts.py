@@ -154,13 +154,15 @@ def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and go
     with db.engine.begin() as connection:
         types = json.loads(connection.execute(sqlalchemy.text("SELECT type FROM carts WHERE id = %d" % (cart_id))).scalar()) # potions in cart with ID
         quantities = json.loads(connection.execute(sqlalchemy.text("SELECT quantity FROM carts WHERE id = %d" % (cart_id))).scalar())
+        cust_name = connection.execute(sqlalchemy.text("SELECT customer_info FROM carts WHERE id = %d" % (cart_id))).scalar()
         shmoney = price_calc(types, quantities)
         #connection.execute(sqlalchemy.text("INSERT INTO ledger (gold_change, description) VALUES (:gold, 'Potion profit')"), {'gold' : shmoney})
         # gold should be positive
         i = 0
         for type in types: # remove potions from inv
             gold = connection.execute(sqlalchemy.text("SELECT price FROM potions WHERE type = :ptype"), {'ptype' : str(type)}).scalar() * quantities[i]
-            connection.execute(sqlalchemy.text("INSERT INTO ledger (potion_type, potion_quantity_change, description, gold_change) VALUES (:pot_type, :quantity, 'Potions sold', :gold)"), {'quantity' : 0 - quantities[i], 'pot_type' : str(type), 'gold' : gold})
+            connection.execute(sqlalchemy.text("INSERT INTO ledger (potion_type, potion_quantity_change, description, gold_change, cust_name) VALUES (:pot_type, :quantity, 'Potions sold', :gold, :name)"),
+                                {'quantity' : 0 - quantities[i], 'pot_type' : str(type), 'gold' : gold, 'name' : cust_name})
             i += 1  # Potions should be negative
 
     return {"total_potions_bought": sum(quantities), "total_gold_paid": shmoney}
