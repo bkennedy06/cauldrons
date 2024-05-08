@@ -61,7 +61,7 @@ def get_bottle_plan():
         supplies = [red_ml_available, green_ml_available, blue_ml_available, 0] # Placeholder for dark
 
     potions = package(supplies)
-    if len(potions > 50):
+    if len(potions > 50): # Restricted on 50 potions at a time
         potions = potions[:49]
     return 
 

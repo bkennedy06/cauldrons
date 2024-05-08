@@ -61,28 +61,33 @@ def search_orders(
     # Make function that returns a list of results, insert into return
     with db.engine.begin() as connection:
         if customer_name != "" and potion_sku != "": # Both searching
-            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts WHERE type = :type and customer_info = :name"), {'type' : potion_sku, 'customer_info' : customer_name})
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type and cust_name = :name"), {'type' : potion_sku, 'name' : customer_name})
         elif potion_sku == "" and customer_name != "": # search for customer name
-            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts WHERE customer_info = :name"), {'name' : customer_name})
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE cust_name = :name"), {'name' : customer_name})
         elif customer_name == "" and potion_sku != "": # search for potion_sku
-            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts WHERE type = :type"), {'type' : potion_sku})
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type"), {'type' : potion_sku})
         else: # No search
-            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts"))
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger"))
     
     ret_result = []
     for order in result:
         pot_type, quant, name, time, id = order
-        price = price_calc([pot_type], [quant])
+        price = price_calc([pot_type], [quant]) * -1
+
+        quant *= -1
+        pot_name = namer(pot_type)
+        # pot type is a list of potion types, need to differentiate
         result = {
                 "line_item_id": id,
-                "item_sku": "{quant} {pot_type}",
+                "item_sku": f"{quant} of {pot_name}",
                 "customer_name": name,
                 "line_item_total": price,
                 "timestamp": time,
             }
         ret_result.append(result)
 
-    # Split array into chunks of 5 items each. 
+    # Split array into chunks of 5 items each depending on next or prev values
+    
     return {
         "previous": "",
         "next": "",
@@ -151,11 +156,12 @@ def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and go
         types = json.loads(connection.execute(sqlalchemy.text("SELECT type FROM carts WHERE id = %d" % (cart_id))).scalar()) # potions in cart with ID
         quantities = json.loads(connection.execute(sqlalchemy.text("SELECT quantity FROM carts WHERE id = %d" % (cart_id))).scalar())
         shmoney = price_calc(types, quantities)
-        connection.execute(sqlalchemy.text("INSERT INTO ledger (gold_change, description) VALUES (:gold, 'Potion profit')"), {'gold' : shmoney})
+        #connection.execute(sqlalchemy.text("INSERT INTO ledger (gold_change, description) VALUES (:gold, 'Potion profit')"), {'gold' : shmoney})
         # gold should be positive
         i = 0
         for type in types: # remove potions from inv
-            connection.execute(sqlalchemy.text("INSERT INTO ledger (potion_type, potion_quantity_change, description) VALUES (:pot_type, :quantity, 'Potions sold')"), {'quantity' : 0 - quantities[i], 'pot_type' : str(type)})
+            gold = connection.execute(sqlalchemy.text("SELECT price FROM potions WHERE type = :ptype"), {'ptype' : str(type)}).scalar() * quantities[i]
+            connection.execute(sqlalchemy.text("INSERT INTO ledger (potion_type, potion_quantity_change, description, gold_change) VALUES (:pot_type, :quantity, 'Potions sold', :gold)"), {'quantity' : 0 - quantities[i], 'pot_type' : str(type), 'gold' : gold})
             i += 1  # Potions should be negative
 
     return {"total_potions_bought": sum(quantities), "total_gold_paid": shmoney}
@@ -179,3 +185,15 @@ def price_calc(types, quantities):
             shmoney += (price * quantities[i])
             i += 1
     return shmoney
+
+def namer(potion):
+    type = json.loads(potion)
+    if type[0] == 100:
+        return "Red Potion"
+    elif type[1] == 100:
+        return "Green Potion"
+    elif type[2] == 100:
+        return "Blue Potion"
+    else:
+        return "Custom Potion: " + potion
+  
