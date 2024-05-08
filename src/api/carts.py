@@ -61,13 +61,13 @@ def search_orders(
     # Make function that returns a list of results, insert into return
     with db.engine.begin() as connection:
         if customer_name != "" and potion_sku != "": # Both searching
-            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type and cust_name = :name"), {'type' : potion_sku, 'name' : customer_name})
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type and cust_name = :name and description = 'Potions sold'"), {'type' : potion_sku, 'name' : customer_name})
         elif potion_sku == "" and customer_name != "": # search for customer name
             result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE cust_name = :name"), {'name' : customer_name})
         elif customer_name == "" and potion_sku != "": # search for potion_sku
-            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type"), {'type' : potion_sku})
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type and description = 'Potions sold'"), {'type' : potion_sku})
         else: # No search
-            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger"))
+            result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE description = 'Potions sold'"))
     
     ret_result = []
     for order in result:
