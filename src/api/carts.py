@@ -59,25 +59,34 @@ def search_orders(
     # Next and prev should be index of the returning array, first page is 0-4, next is 5-10, prev is 0-4, etc.
     # Search carts by name if applicable, also by potion sku if applicable.
     # Make function that returns a list of results, insert into return
-    #with db.engine.begin() as connection:
-    #    if customer_name != "" and potion_sku != "": # Both searching
-    #        result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info FROM carts WHERE type = :type")).first()
-        #elif potion_sku == "": # search for customer name
-        #elif customer_name == "": # search for potion_sku
+    with db.engine.begin() as connection:
+        if customer_name != "" and potion_sku != "": # Both searching
+            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts WHERE type = :type and customer_info = :name"), {'type' : potion_sku, 'customer_info' : customer_name})
+        elif potion_sku == "" and customer_name != "": # search for customer name
+            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts WHERE customer_info = :name"), {'name' : customer_name})
+        elif customer_name == "" and potion_sku != "": # search for potion_sku
+            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts WHERE type = :type"), {'type' : potion_sku})
+        else: # No search
+            result = connection.execute(sqlalchemy.text("SELECT type, quantity, customer_info, time_stamp, id FROM carts"))
     
+    ret_result = []
+    for order in result:
+        pot_type, quant, name, time, id = order
+        price = price_calc([pot_type], [quant])
+        result = {
+                "line_item_id": id,
+                "item_sku": "{quant} {pot_type}",
+                "customer_name": name,
+                "line_item_total": price,
+                "timestamp": time,
+            }
+        ret_result.append(result)
 
+    # Split array into chunks of 5 items each. 
     return {
         "previous": "",
         "next": "",
-        "results": [
-            {
-                "line_item_id": 1,
-                "item_sku": "1 oblivion potion",
-                "customer_name": "Scaramouche",
-                "line_item_total": 50,
-                "timestamp": "2021-01-01T00:00:00Z",
-            }
-        ],
+        "results": ret_result,
     }
 
 
@@ -101,7 +110,7 @@ def create_cart(new_cart: Customer):
     with db.engine.begin() as connection: # orders = (id, type, quantitiy) type and quan are text arrays
         try: 
             cartID = connection.execute(sqlalchemy.text("INSERT INTO carts DEFAULT VALUES RETURNING id")).scalar()
-            customer = "{new_cart.customer_name}"
+            customer = new_cart.customer_name
             connection.execute(sqlalchemy.text("UPDATE carts SET customer_info = :cust WHERE id = :id"), {'cust' : customer, 'id' : cartID})
         except IntegrityError as e:
             return "OK"
