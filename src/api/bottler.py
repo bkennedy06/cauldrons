@@ -60,8 +60,10 @@ def get_bottle_plan():
 
         supplies = [red_ml_available, green_ml_available, blue_ml_available, 0] # Placeholder for dark
 
-    
-    return package(supplies)
+    potions = package(supplies)
+    if len(potions > 50):
+        potions = potions[:49]
+    return 
 
 def package(supplies): # Just populate db with custom potions, query them to see which we can make
     packages = []
