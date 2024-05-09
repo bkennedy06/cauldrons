@@ -35,12 +35,15 @@ def get_capacity_plan():
     capacity unit costs 1000 gold.
     """
     inv = get_inventory()
-    gold = inv["gold"], potions = inv["number_of_potions"], mls = inv["ml_in_barrels"]
+    potions = inv["number_of_potions"]
+    mls = inv["ml_in_barrels"]
+    gold = inv["gold"]
     with db.engine.begin() as connection:
         pot_cap = connection.execute(sqlalchemy.text("""SELECT pot_cap FROM capacity""")).first()[0]
         ml_cap = connection.execute(sqlalchemy.text("""SELECT ml_cap FROM capacity""")).first()[0]
 
-    pc, mc = 0
+    pc = 0
+    mc = 0
     if mls == ml_cap and gold > 1000:
         mc = 1
         gold -= 1000
