@@ -100,11 +100,18 @@ def search_orders(
     chunk = ret_result[start_index:end_index]
 
     if start_index == 0: # First page
-        return {
-            "previous": "",
-            "next": str(end_index),
-            "results": chunk,
-        }
+        if end_index == 5: # First page, no more results
+            return {
+                "previous": "",
+                "next": str(end_index),
+                "results": chunk,
+            }
+        else: # First page and more results
+            return {
+                "previous": "",
+                "next": "",
+                "results": chunk,
+            }
     elif end_index == len(ret_result): # Last page
         return {
             "previous": str(start_index - 5),
