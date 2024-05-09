@@ -59,6 +59,13 @@ def search_orders(
     # Next and prev should be index of the returning array, first page is 0-4, next is 5-10, prev is 0-4, etc.
     # Search carts by name if applicable, also by potion sku if applicable.
     # Make function that returns a list of results, insert into return
+    if potion_sku == "Red Potion":
+        potion_sku = "[100, 0, 0, 0]"
+    elif potion_sku == "Green Potion":
+        potion_sku = "[0, 100, 0, 0]"
+    elif potion_sku == "Blue Potion":
+        potion_sku = "[0, 0, 100, 0]"
+
     with db.engine.begin() as connection:
         if customer_name != "" and potion_sku != "": # Both searching
             result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE potion_type = :type and cust_name = :name and description = 'Potions sold'"), {'type' : potion_sku, 'name' : customer_name})
