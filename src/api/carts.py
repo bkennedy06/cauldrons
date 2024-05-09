@@ -85,6 +85,8 @@ def search_orders(
         ret_result.append(res)
 
     # Split array into chunks of 5 items each depending on next or prev values. search_page will dictate
+    if search_page == "": # Isn't anything to start with
+        search_page = "0"
     start_index = int(search_page)
     end_index = min(start_index + 5, len(ret_result))
 
