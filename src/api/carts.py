@@ -84,13 +84,30 @@ def search_orders(
             }
         ret_result.append(res)
 
-    # Split array into chunks of 5 items each depending on next or prev values
-    
-    return {
-        "previous": "",
-        "next": "",
-        "results": ret_result,
-    }
+    # Split array into chunks of 5 items each depending on next or prev values. search_page will dictate
+    start_index = int(search_page)
+    end_index = min(start_index + 5, len(ret_result))
+
+    chunk = ret_result[start_index:end_index]
+
+    if start_index == 0: # First page
+        return {
+            "previous": "",
+            "next": str(end_index),
+            "results": chunk,
+        }
+    elif end_index == len(ret_result) - 1: # Last page
+        return {
+            "previous": str(start_index - 5),
+            "next": "",
+            "results": chunk,
+        }
+    else: # Somewhere in the middle
+        return {
+            "previous": str(start_index - 5),
+            "next": str(end_index),
+            "results": chunk,
+        }
 
 
 class Customer(BaseModel):
