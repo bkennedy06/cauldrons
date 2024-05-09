@@ -24,6 +24,8 @@ def reset():
         connection.execute(sqlalchemy.text("INSERT INTO liquid_ledger DEFAULT VALUES"))
         
         connection.execute(sqlalchemy.text("TRUNCATE TABLE carts RESTART IDENTITY"))
+        connection.execute(sqlalchemy.text("TRUNCATE TABLE capacity RESTART IDENTITY"))
+        connection.execute(sqlalchemy.text("INSERT INTO capacity DEFAULT VALUES"))
         # delete order records, reset id counter
     return "OK"
 

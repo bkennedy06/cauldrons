@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends
 from enum import Enum
 from pydantic import BaseModel
 from src.api import auth
+from src.api import inventory
+import json
 
 router = APIRouter(
     prefix="/bottler",
@@ -58,78 +60,54 @@ def get_bottle_plan():
         red_ml_available = connection.execute(sqlalchemy.text("SELECT SUM(r_ml) AS ml FROM liquid_ledger")).first()[0]
         blue_ml_available = connection.execute(sqlalchemy.text("SELECT SUM(b_ml) AS ml FROM liquid_ledger")).first()[0]
 
+        potion_options = connection.execute(sqlalchemy.text("SELECT type FROM potions"))
+        pot_cap = connection.execute(sqlalchemy.text("SELECT pot_cap FROM capacity")).first()[0]
+        inv = inventory.get_inventory()
+        print(inv)
+        total_potions = inv["number_of_potions"]
+        print(total_potions)
+        pot_cap = pot_cap - total_potions
         supplies = [red_ml_available, green_ml_available, blue_ml_available, 0] # Placeholder for dark
 
-    potions = package(supplies)
+    pot_ops = []
+    for ptype in potion_options:
+        pot_ops.append(json.loads(ptype[0]))
+    print(pot_cap)
+    potions = package(supplies, pot_ops, pot_cap)
 
 
-    if len(potions) > 50: # Restricted on 50 potions at a time
-        potions = potions[:49]
-    return 
+    return potions
 
-def package(supplies): # Just populate db with custom potions, query them to see which we can make
-    packages = []
-    print(supplies)
-    #At least one custom potion
-    if sum(supplies) >= 100:
-        mixed_package = [0] * 4
-        total = 0
+def package(mls, potion_options, max_potions):
+    results = []
+    total_packages = 0
 
-        for i in range(len(supplies)):
-            if total < 100 and supplies[i] > 0:
-                
-                max_take = min(supplies[i], 100 - total)
-                if max_take == 100 and total == 0 and sum(supplies) - supplies[i] >= 100:
-                    # If possible, take less than 100 to allow mixing
-                    max_take -= min(25, max_take)
-                mixed_package[i] = max_take
-                supplies[i] -= max_take
-                total += max_take
-                if total >= 100:
-                    break
-
-        if total == 100:
-            packages.append(mixed_package)
-
-    # Continue with previous logic to fill up packages using available supplies
-    while sum(supplies) >= 100:
-        single_package_made = False
-        for i in range(len(supplies)):
-            if supplies[i] >= 100:
-                package = [0] * len(supplies)
-                package[i] = 100
-                supplies[i] -= 100
-                packages.append(package)
-                single_package_made = True
-                break
-
-        if single_package_made:
-            continue
-
-        package = [0] * 4
-        total = 0
+    for config in potion_options:
+        max_possible = float('inf')  
         
-        for i in range(len(supplies)):
-            if total < 100:
-                max_take = min(supplies[i], 100 - total)
-                package[i] = max_take
-                supplies[i] -= max_take
-                total += max_take
+        for i in range(len(mls)):
+            if config[i] > 0:
+                max_possible = min(max_possible, mls[i] // config[i])
+        
+        packages_to_make = min(max_possible, max_potions - total_packages)
 
-        packages.append(package)
+        # Update ml's based on potions made
+        for i in range(len(mls)):
+            mls[i] -= packages_to_make * config[i]
 
-    ret_list = []
-    while len(packages) > 0:
-        potion = packages[0]
-        quantity = packages.count(potion)
-        packages = [element for element in packages if element != potion]
-        ret_list.append({
-            "potion_type": potion,
-            "quantity": quantity
-        })
+        # Keep track of total potions made 
+        total_packages += packages_to_make
 
+        if packages_to_make > 0:
+            results.append({
+                "potion_type": config,
+                "quantity": packages_to_make
+            })
 
-    return ret_list
+        if total_packages >= max_potions:
+            break
+
+    return results
 
 #[
 #    {

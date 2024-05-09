@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
 
+
 router = APIRouter(
     prefix="/barrels",
     tags=["barrels"],
@@ -70,7 +71,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(g_ml) AS ml FROM liquid_ledger")).first()[0]
         num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(r_ml) AS ml FROM liquid_ledger")).first()[0]
         num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(b_ml) AS ml FROM liquid_ledger")).first()[0]
-
+        ml_cap = connection.execute(sqlalchemy.text("SELECT ml_cap FROM capacity")).first()[0]
     if num_blue_ml is None:
         num_blue_ml = 0
     if num_red_ml is None:
@@ -78,7 +79,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     if num_green_ml is None:
         num_green_ml = 0
 
-    purchases = optimize_purchases(purch_power, [num_red_ml, num_green_ml, num_blue_ml, 0], wholesale_catalog)
+    purchases = optimize_purchases(purch_power, [num_red_ml, num_green_ml, num_blue_ml, 0], wholesale_catalog, ml_cap)
     green_pur = {
             "sku": purchases[1][0],
             "quantity": purchases[1][1],
@@ -102,39 +103,53 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     
     return pur_plan
 
-def optimize_purchases(gold, current_stock, barrels):
-    purchases = [(None, 0)] * 4
-    best_barrels_per_type = [[] for _ in current_stock]
+def optimize_purchases(gold, current_stock, barrels, max_total_ml):
+    purchases = [(None, 0)] * len(current_stock)
+    best_barrels_per_type = [[] for _ in range(len(current_stock))]
+    current_total_ml = sum(current_stock)  # Assume current_stock holds total ml per type initially
 
-    # no mini barrels
+    # Gather all relevant barrels per type, filtering out less efficient options
     for barrel in barrels:
-        if barrel.ml_per_barrel <= 200:
-            continue  
+        if barrel.ml_per_barrel <= 200:  # Skip barrels deemed inefficient
+            continue
         for i, type_present in enumerate(barrel.potion_type):
             if type_present:
                 best_barrels_per_type[i].append(barrel)
 
-    # Sort each by cost efficiency
+    # Sort each list by cost efficiency (price per ml)
     for i in range(len(best_barrels_per_type)):
         best_barrels_per_type[i].sort(key=lambda b: (b.price / b.ml_per_barrel))
 
-    # buy on priority and current stock
+    # Buy barrels based on priority, available gold, and not exceeding ml limits
     for index in sorted(range(len(current_stock)), key=lambda i: current_stock[i]):
         for barrel in best_barrels_per_type[index]:
             if barrel is None:
                 continue
 
-            total_cost = barrel.price # One barrel at a time
-            if gold < total_cost:
-                continue
+            total_cost = barrel.price  # Cost for one barrel
+            barrels_affordable = int(gold / total_cost)  # How many of this type can be bought
+            if barrels_affordable == 0:
+                continue  # Skip if cannot afford even one barrel
 
-            # Buy if we not broke
-            purchases[index] = (barrel.sku, 1) 
-            gold -= total_cost
-            
-            if gold <= 0:
+            # Calculate potential new ml if barrels are purchased
+            max_barrels_by_ml = int((max_total_ml - current_total_ml) / barrel.ml_per_barrel)
+            barrels_to_buy = min(barrels_affordable, barrel.quantity, max_barrels_by_ml)
+
+            if barrels_to_buy == 0:
+                continue  # Skip this purchase to avoid exceeding ml limit
+
+            purchase_cost = barrels_to_buy * total_cost
+            purchases[index] = (barrel.sku, barrels_to_buy)
+            gold -= purchase_cost
+            new_ml = barrels_to_buy * barrel.ml_per_barrel
+            current_total_ml += new_ml  # Update current total ml
+
+            print(f"Bought {barrels_to_buy} barrels from SKU {barrel.sku} for {purchase_cost} gold. Remaining gold: {gold}, Total ml: {current_total_ml}")
+
+            if gold <= 0 or current_total_ml >= max_total_ml:
+                print("Ran out of gold or reached ml capacity.")
                 break
-        if gold <= 0:
+        if gold <= 0 or current_total_ml >= max_total_ml:
             break
 
     return purchases
