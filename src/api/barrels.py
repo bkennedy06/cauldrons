@@ -127,16 +127,16 @@ def optimize_purchases(gold, current_stock, barrels, max_total_ml):
                 continue
 
             total_cost = barrel.price  # Cost for one barrel
-            barrels_affordable = int(gold / total_cost)  # How many of this type can be bought
+            barrels_affordable = int(gold / total_cost)
             if barrels_affordable == 0:
-                continue  # Skip if cannot afford even one barrel
+                continue
 
             # Calculate potential new ml if barrels are purchased
             max_barrels_by_ml = int((max_total_ml - current_total_ml) / barrel.ml_per_barrel)
             barrels_to_buy = min(barrels_affordable, barrel.quantity, max_barrels_by_ml)
 
             if barrels_to_buy == 0:
-                continue  # Skip this purchase to avoid exceeding ml limit
+                continue 
 
             purchase_cost = barrels_to_buy * total_cost
             purchases[index] = (barrel.sku, barrels_to_buy)
@@ -144,10 +144,8 @@ def optimize_purchases(gold, current_stock, barrels, max_total_ml):
             new_ml = barrels_to_buy * barrel.ml_per_barrel
             current_total_ml += new_ml  # Update current total ml
 
-            print(f"Bought {barrels_to_buy} barrels from SKU {barrel.sku} for {purchase_cost} gold. Remaining gold: {gold}, Total ml: {current_total_ml}")
-
+            
             if gold <= 0 or current_total_ml >= max_total_ml:
-                print("Ran out of gold or reached ml capacity.")
                 break
         if gold <= 0 or current_total_ml >= max_total_ml:
             break
