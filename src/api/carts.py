@@ -105,7 +105,7 @@ def search_orders(
             "next": str(end_index),
             "results": chunk,
         }
-    elif end_index == len(ret_result) - 1: # Last page
+    elif end_index == len(ret_result): # Last page
         return {
             "previous": str(start_index - 5),
             "next": "",
