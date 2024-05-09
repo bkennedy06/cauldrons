@@ -44,7 +44,7 @@ def get_capacity_plan():
 
     pc = 0
     mc = 0
-    if mls == ml_cap and gold > 1000:
+    if mls >= (ml_cap - 500) and gold > 1000:
         mc = 1
         gold -= 1000
     if potions == pot_cap and gold > 1000:
