@@ -68,6 +68,8 @@ def deliver_capacity_plan(capacity_purchase : CapacityPurchase, order_id: int):
     with db.engine.begin() as connection:
         if capacity_purchase.potion_capacity == 1:
             connection.execute(sqlalchemy.text("UPDATE capacity SET pot_cap = pot_cap + 50"))
+            connection.execute(sqlalchemy.text("INSERT INTO ledger (description, gold_change) VALUES ('Potion Capacity purchased', -1000)"))
         if capacity_purchase.ml_capacity == 1:
             connection.execute(sqlalchemy.text("UPDATE capacity SET ml_cap = ml_cap + 10000"))
+            connection.execute(sqlalchemy.text("INSERT INTO ledger (description, gold_change) VALUES ('Ml Capacity purchased', -1000)"))
     return "OK"
