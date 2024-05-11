@@ -164,7 +164,7 @@ class CartItem(BaseModel):
 @router.post("/{cart_id}/items/{item_sku}") # For selling more than 1 potions
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
     """ """
-    potion_type = type_extracter(item_sku)
+    potion_type = json.loads(type_extracter(item_sku))
     print(potion_type)
     with db.engine.begin() as connection: # carts = (id, num_red_potions, num_green_potions, nblue)
         types = json.loads((connection.execute(sqlalchemy.text("SELECT type FROM carts WHERE id = %d" % (cart_id)))).scalar())
@@ -203,14 +203,8 @@ def checkout(cart_id: int, cart_checkout: CartCheckout): # potions bought and go
     return {"total_potions_bought": sum(quantities), "total_gold_paid": shmoney}
 
 def type_extracter(item_sku):
-    if item_sku == "Red_Potion":
-        return [100, 0, 0 ,0]
-    elif item_sku == "Green_Potion":
-        return [0, 100, 0, 0]
-    elif item_sku == "Blue_Potion":
-        return [0, 0, 100, 0]
-    else: # Custom potion
-        return json.loads((re.search(r'\[(.*?)\]', item_sku)).group(0))
+    with db.engine.begin() as connection:
+        return connection.execute(sqlalchemy.text("SELECT type FROM potions WHERE sku = :sku"), {'sku' : item_sku}).first()[0]
 
 def price_calc(types, quantities):
     with db.engine.begin() as connection:

@@ -15,12 +15,9 @@ def get_catalog():
     catalog = []
     with db.engine.begin() as connection: # Should return specific columns
         top_6 = wut_2_sell()
-        print(top_6)
         for potion in top_6: # (type, quantity)
             price = connection.execute(sqlalchemy.text("SELECT price FROM potions WHERE type = :pot_t"), {'pot_t' : potion[0]}).first()[0]
-            print(potion[0])
             arr_type = json.loads(potion[0])
-            print((type(arr_type)))
             sale = {
                 "sku": skuer(potion[0]),
                 "name": namer(potion[0]),
@@ -33,15 +30,8 @@ def get_catalog():
     return catalog
 
 def skuer(potion):
-    type = json.loads(potion)
-    if type[0] == 100:
-        return "Red_Potion"
-    elif type[1] == 100:
-        return "Green_Potion"
-    elif type[2] == 100:
-        return "Blue_Potion"
-    else:
-        return "Custom_Potion_" + potion
+    with db.engine.begin() as connection:
+        return connection.execute(sqlalchemy.text("SELECT sku FROM potions WHERE type = :pot_t"), {'pot_t' : potion}).first()[0]
 
 def namer(potion):
     type = json.loads(potion)
