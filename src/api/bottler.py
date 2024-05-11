@@ -63,16 +63,16 @@ def get_bottle_plan():
         potion_options = connection.execute(sqlalchemy.text("SELECT type FROM potions"))
         pot_cap = connection.execute(sqlalchemy.text("SELECT pot_cap FROM capacity")).first()[0]
         inv = inventory.get_inventory()
-        print(inv)
         total_potions = inv["number_of_potions"]
-        print(total_potions)
         pot_cap = pot_cap - total_potions
         supplies = [red_ml_available, green_ml_available, blue_ml_available, 0] # Placeholder for dark
+
+    if pot_cap == 0:
+        return []
 
     pot_ops = []
     for ptype in potion_options:
         pot_ops.append(json.loads(ptype[0]))
-    print(pot_cap)
     potions = package(supplies, pot_ops, pot_cap)
 
 
