@@ -77,7 +77,7 @@ def search_orders(
             result = connection.execute(sqlalchemy.text("SELECT potion_type, potion_quantity_change, cust_name, created_at, id FROM ledger WHERE description = 'Potions sold'"))
     
     
-    items = [] # Need to sort by ascending and desceding for most columns. Worth?
+    ret_result = [] # Need to sort by ascending and desceding for most columns. Worth?
     for order in result:
         pot_type, quant, name, time, id = order
         price = price_calc([pot_type], [quant]) * -1
@@ -90,9 +90,8 @@ def search_orders(
                 "line_item_total": price,
                 "timestamp": time,
             }
-        items.append(res)
+        ret_result.append(res)
 
-    ret_result = items.reverse()
 
     # Split array into chunks of 5 items each depending on next or prev values. search_page will dictate
     if search_page == "": # Isn't anything to start with
