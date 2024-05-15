@@ -32,27 +32,30 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     for barrel in barrels_delivered: # ml calculation, prolly have to update for multi colored barrels
         if barrel.potion_type == [0, 1, 0, 0]: # green
             greenMl += (barrel.ml_per_barrel * barrel.quantity) #ml per barrel
+            g_barrel_cost = (barrel.price * barrel.quantity)
         elif barrel.potion_type == [1, 0, 0, 0]: # red
             redMl += (barrel.ml_per_barrel * barrel.quantity)
+            r_barrel_cost = (barrel.price * barrel.quantity)
         elif barrel.potion_type == [0, 0, 1, 0]: # blue
             blueMl += (barrel.ml_per_barrel * barrel.quantity)
-        total_cost += (barrel.price * barrel.quantity) # price per barrel
+            b_barrel_cost = (barrel.price * barrel.quantity)
+        #total_cost += (barrel.price * barrel.quantity) # price per barrel
     
     with db.engine.begin() as connection: # update storage depending on potion
         try:
             if greenMl > 0:
                 connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :price, 'Green barrel purchased')"""),
-                                   {'pot_type' : "[0, 1, 0, 0]", 'price' : (0 - total_cost)})
+                                   {'pot_type' : "[0, 1, 0, 0]", 'price' : (0 - g_barrel_cost)})
                 connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (g_ml, description) VALUES (:gml, 'Green barrel purchased')"""),
                                    {'gml' : greenMl})
             if redMl > 0:
                 connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :price, 'Red barrel purchased')"""),
-                                   {'pot_type' : "[1, 0, 0, 0]", 'price' : (0 - total_cost)})
+                                   {'pot_type' : "[1, 0, 0, 0]", 'price' : (0 - r_barrel_cost)})
                 connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (r_ml, description) VALUES (:rml, 'Red barrel purchased')"""),
                                    {'rml' : redMl})
             if blueMl > 0:
                 connection.execute(sqlalchemy.text("""INSERT INTO ledger (potion_type, gold_change, description) VALUES (:pot_type, :price, 'Blue barrel purchased')"""),
-                                   {'pot_type' : "[0, 0, 1, 0]",  'price' : (0 - total_cost)})
+                                   {'pot_type' : "[0, 0, 1, 0]",  'price' : (0 - b_barrel_cost)})
                 connection.execute(sqlalchemy.text("""INSERT INTO liquid_ledger (b_ml, description) VALUES (:bml, 'Blue barrel purchased')"""),
                                    {'bml' : blueMl})
         except IntegrityError as e:
