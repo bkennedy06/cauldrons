@@ -66,10 +66,12 @@ def deliver_capacity_plan(capacity_purchase : CapacityPurchase, order_id: int):
     capacity unit costs 1000 gold.
     """
     with db.engine.begin() as connection:
+        new_mls = capacity_purchase.ml_capacity * 10000
+        gold = -1000 * capacity_purchase.ml_capacity
         if capacity_purchase.potion_capacity == 1:
             connection.execute(sqlalchemy.text("UPDATE capacity SET pot_cap = pot_cap + 50"))
             connection.execute(sqlalchemy.text("INSERT INTO ledger (description, gold_change) VALUES ('Potion Capacity purchased', -1000)"))
         if capacity_purchase.ml_capacity == 1:
-            connection.execute(sqlalchemy.text("UPDATE capacity SET ml_cap = ml_cap + 10000"))
-            connection.execute(sqlalchemy.text("INSERT INTO ledger (description, gold_change) VALUES ('Ml Capacity purchased', -1000)"))
+            connection.execute(sqlalchemy.text("UPDATE capacity SET ml_cap = ml_cap + :ml"), {'ml' : new_mls})
+            connection.execute(sqlalchemy.text("INSERT INTO ledger (description, gold_change) VALUES ('Ml Capacity purchased', :gold)"), {'gold' : gold})
     return "OK"
