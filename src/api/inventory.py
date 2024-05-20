@@ -50,7 +50,7 @@ def get_capacity_plan():
     if potions >= (pot_cap - (pot_cap / 5)) and gold > 1000: # scale it
         pc = 1
     return {
-        "potion_capacity": pc,
+        "potion_capacity": 0,
         "ml_capacity": 3
         }
 
